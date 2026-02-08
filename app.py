@@ -6,16 +6,16 @@ import urllib.parse
 
 st.set_page_config(page_title="مدير النظافة", page_icon="🧹")
 
-# استخدام "session_state" لحفظ الشقق مؤقتاً في المتصفح
+# حفظ البيانات في الجلسة
 if 'my_units' not in st.session_state:
     st.session_state.my_units = []
 
 st.title("🏡 نظام إدارة النظافة")
 
-# القائمة الجانبية
 with st.sidebar:
     st.header("⚙️ الإعدادات")
-    phone = st.text_input("رقم واتساب الشركة (مثال: 966500000000)")
+    # توضيح أهمية الصيغة الدولية
+    phone = st.text_input("رقم الواتساب (مثال: 966501234567)", help="اكتب الرقم بدون أصفار وبدون علامة +")
     
     st.divider()
     st.header("➕ إضافة عقار")
@@ -30,33 +30,48 @@ with st.sidebar:
             st.error("أدخل الاسم والرابط!")
 
 # العرض الرئيسي
-st.subheader("📋 جدول اليوم")
+st.subheader("📋 جدول المواعيد اليوم")
 to_clean = []
 
 if st.session_state.my_units:
     for unit in st.session_state.my_units:
         try:
             today = date.today()
-            # فحص التقويم
             evs = events(url=unit['link'], start=today, end=today)
             is_out = any(e.end.date() == today for e in evs)
             
-            status = "🚨 خروج اليوم" if is_out else "✅ محجوز/لا خروج"
-            if is_out: to_clean.append(unit['name'])
-            
-            st.write(f"**{unit['name']}**: {status}")
+            if is_out:
+                st.warning(f"🚨 {unit['name']}: خروج اليوم - بحاجة تنظيف")
+                to_clean.append(unit['name'])
+            else:
+                st.success(f"✅ {unit['name']}: محجوز أو لا يوجد خروج")
         except:
-            st.write(f"**{unit['name']}**: ⚠️ خطأ في الرابط")
+            st.error(f"⚠️ {unit['name']}: خطأ في الرابط")
 
     st.divider()
     
-    # زر الواتساب المطور
-    if st.button("📲 تجهيز رسالة الواتساب"):
-        if to_clean and phone:
-            msg = "🔔 تقرير النظافة اليومي:\n" + "\n".join([f"- {n}" for n in to_clean])
-            url = f"https://wa.me/{phone}?text={urllib.parse.quote(msg)}"
-            st.markdown(f'[اضغط هنا للإرسال من واتسابك]({url})')
+    if to_clean:
+        if phone:
+            # تنظيف الرقم من أي رموز زائدة
+            clean_phone = ''.join(filter(str.isdigit, phone))
+            msg = "🔔 *تقرير النظافة اليومي* 🧹\n\nتوجد عمليات خروج في:\n" + "\n".join([f"- {n}" for n in to_clean])
+            encoded_msg = urllib.parse.quote(msg)
+            
+            # رابط الواتساب المباشر
+            whatsapp_url = f"https://wa.me/{clean_phone}?text={encoded_msg}"
+            
+            st.info("اضغط على الزر أدناه ليفتح لك الواتساب مباشرة:")
+            # زر كبير وواضح للجوال
+            st.markdown(f'''
+                <a href="{whatsapp_url}" target="_blank" style="text-decoration: none;">
+                    <div style="background-color: #25D366; color: white; padding: 15px; text-align: center; border-radius: 10px; font-weight: bold; font-size: 20px;">
+                        إرسال عبر واتساب الآن 📲
+                    </div>
+                </a>
+            ''', unsafe_content_safe=True)
         else:
-            st.warning("لا توجد شقق للتنظيف أو لم تضع رقم الهاتف")
+            st.error("⚠️ لازم تكتب رقم الجوال في القائمة الجانبية أولاً")
+    else:
+        st.write("✨ لا توجد شقق تحتاج تنظيف اليوم.")
 else:
-    st.info("أضف عقاراتك من القائمة الجانبية.")
+    st.info("أضف عقاراتك من القائمة الجانبية (الزر اللي في الزاوية).")
